@@ -1,0 +1,49 @@
+name: 'ESLint Analysis Action'
+description: 'Runs ESLint based on the ruleset defined - https://eslint.org/'
+branding:
+  icon: 'zoom-in'  
+  color: 'yellow'
+inputs:
+  analyse-all-code:
+    description: 'Used to determine whether you just want to analyse the files changed or the whole repository.'
+    required: false
+    default: 'false'
+  file-path:
+    description: 'Path to the sources to analyse. This can be a file name or a directory. Should be used when analysing the whole code base.'
+    required: false
+    default: '**/**'
+  eslint-version:
+    description: 'The version of ESLint you would like to run. Applicable when you are not installing via package.json.'
+    required: false
+    default: '7.10.0'
+  rules-path:
+    description: 'The ESLint ruleset file you want to use for the analysis.'
+    required: false
+    default: './eslintrc.json'
+  setup-from-package-json:
+    description: 'You can manage your ESLint setup via package.json configuration in your project. Recommended if you are working with plugins.'
+    required: false
+    default: 'false'
+runs:
+  using: "composite"
+  steps: 
+    - id: branches
+      run: |
+        if [ ${{ github.event_name }} == 'pull_request' ]; then
+            echo "::set-output name=target::${{ github.base_ref }}"
+            echo "::set-output name=source::${{ github.head_ref }}"
+        else
+            echo "::set-output name=target::${{ github.event.repository.default_branch }}"
+            echo "::set-output name=source::${{ github.ref }}"
+        fi
+      shell: bash
+    - run: ${{ github.action_path }}/eslint.sh
+      shell: bash
+      env:
+        ESLINT_VERSION: ${{ inputs.eslint-version }}
+        SETUP_FROM_PACKAGE_JSON: ${{ inputs.setup-from-package-json }}
+        FILE_PATH: ${{ inputs.file-path }}
+        RULES_PATH: ${{ inputs.rules-path }}
+        ANALYSE_ALL_CODE: ${{ inputs.analyse-all-code }}
+        TARGET_BRANCH: ${{ steps.branches.outputs.target }}
+        SOURCE_BRANCH: ${{ steps.branches.outputs.source }}
