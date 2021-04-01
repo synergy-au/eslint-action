@@ -1,5 +1,6 @@
 # shellcheck shell=sh
 ERROR_COUNT=0
+
 # Install the ESLint node modules
 if [ "$SETUP_FROM_PACKAGE_JSON" == 'true' ]; then
     # Due to issues about installing only devDependencies we install all the packages - https://github.com/npm/cli/issues/1669
@@ -11,8 +12,13 @@ fi
 if [ "$ANALYSE_ALL_CODE" == 'true' ]; then
     node_modules/.bin/eslint -c "$RULES_PATH" -f json "$FILE_PATH" > eslint-output.json
 else
-    # Generate a one line string with all the file names separated with a space
-    FILES_CHANGED="$(git diff --name-only --diff-filter=d origin/"$TARGET_BRANCH"..origin/"${SOURCE_BRANCH#"refs/heads/"}" | grep -E ".js$|.jsx$|.ts$|.tsx$" | xargs)"
+    # Now to determine whether to get the files changed from a git diff or using the files changed in a GitHub Pull Request
+    # Both options will generate a one line string with all the file names separated with a space
+    if [ "FILE_DIFF_TYPE" == 'git' ]; then
+        FILES_CHANGED="$(git diff --name-only --diff-filter=d origin/"$TARGET_BRANCH"..origin/"${SOURCE_BRANCH#"refs/heads/"}" | grep -E ".js$|.jsx$|.ts$|.tsx$" | xargs)"
+    else
+        FILES_CHANGED="$(curl -H "Accept: application/vnd.github.v3+json" -H "Authorization: token ${AUTH_TOKEN}" https://api.github.com/repos/"$REPO_NAME"/pulls/"$PR_NUMBER"/files | jq --raw-output '.[] .filename' | grep -E ".js$|.jsx$|.ts$|.tsx$" | xargs)"
+    fi
     # Run the analysis
     node_modules/.bin/eslint -c "$RULES_PATH" -f json $FILES_CHANGED > eslint-output.json
 fi
